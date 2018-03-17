@@ -1,14 +1,17 @@
 \begin{code}[hide]
+open import GenericSyntax.Util
+
 module GenericSyntax.Repr (Ty : Set) where
 
 open import GenericSyntax.Desc Ty
 open import Data.Nat
 open import Data.List hiding (map; zip)
-open import Data.Vec hiding (map)
-open import Data.Vec.All
+open import Data.Vec hiding (map; lookup)
+open import Data.Vec.All hiding (map; lookup)
+open import Data.List.All renaming (All to Allₗ) using (map)
 open import Data.Vec.Relation.InductivePointwise
-  renaming (Pointwise to All₂; map to map₂)
-  hiding (refl; trans; sym)
+  renaming (Pointwise to All₂)
+  hiding (refl; trans; sym; map; lookup)
 open import Data.Fin using (Fin)
 open import GenericSyntax.Ctx Ty
 open import Data.Product hiding (map; zip)
@@ -125,3 +128,37 @@ module Untype (desc : Desc) where
       untype-con (node ts₀ es)  = node (untype⋆ es)
 \end{code}
 %</untype>
+
+%<*phoas>
+\begin{code}
+module PHOAS (desc : Desc) where
+  mutual
+    data Tm (V : Ty → Set) : Ty → Set where
+      var : ∀ {t}  → V t           → Tm V t
+      con : ∀ {t}  → Con V t desc  → Tm V t
+
+    data Con (V : Ty → Set) (t : Ty) : Desc → Set where
+      sg : ∀ {A k} x → Con V t (k x) → Con V t (sg A k)
+      node : ∀ {n k sh wt} (ts₀ : Vec Ty n) {ts : Vec Ty k}
+        (es : Children V ts₀ sh ts)
+        {{_ : wt ts₀ ts t}}
+        → Con V t (node n sh wt)
+
+    Children : ∀ {n k} → (Ty → Set) → Vec Ty n → Shape n k → Vec Ty k → Set
+    Children V ts₀ = All₂ (λ bs t → (Allₗ V (visible bs ts₀) → Tm V t))
+\end{code}
+%</phoas>
+
+\begin{code}
+    sub : ∀ {V} → Tm (Tm V) →̇ Tm V
+    sub (var v)  = v
+    sub (con c)  = con (sub-con c)
+      where
+        sub⋆ : ∀ {V n k sh ts₀ ts} → Children {n} {k} (Tm V) ts₀ sh ts → Children V ts₀ sh ts
+        sub⋆ []        = []
+        sub⋆ (e ∷ es)  = (λ xs → sub (e (map var xs))) ∷ sub⋆ es
+
+        sub-con : ∀ {V t c} → Con (Tm V) t c → Con V t c
+        sub-con (sg x c)       = sg x (sub-con c)
+        sub-con (node ts₀ es)  = node ts₀ (sub⋆ es)
+\end{code}
