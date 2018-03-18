@@ -92,7 +92,7 @@ STLC = sg `STLC λ
   }
 ```
 
-For ````lam```bda abstractions, we store an argument type, and then
+For ``` `lam```bda abstractions, we store an argument type, and then
 bind one new variable, visible in one subterm; the well-typedness
 constraint then requires the type of the newly bound variable to match
 the user-supplied one, while also requiring the result type to be the
