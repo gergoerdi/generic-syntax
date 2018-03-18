@@ -8,7 +8,7 @@ open import Data.Nat
 open import Data.List hiding (map; zip)
 open import Data.Vec hiding (map; lookup)
 open import Data.Vec.All hiding (map; lookup)
-open import Data.List.All renaming (All to Allₗ) using (map)
+open import Data.List.All renaming (All to Allˡ) using (map)
 open import Data.Vec.Relation.InductivePointwise
   renaming (Pointwise to All₂)
   hiding (refl; trans; sym; map; lookup)
@@ -129,13 +129,13 @@ module Untype (desc : Desc) where
 \end{code}
 %</untype>
 
-%<*phoas>
+%<*PHOAS>
 \begin{code}
 module PHOAS (desc : Desc) where
   mutual
-    data Tm (V : Ty → Set) : Ty → Set where
-      var : ∀ {t}  → V t           → Tm V t
-      con : ∀ {t}  → Con V t desc  → Tm V t
+    data HOTm (V : Ty → Set) : Ty → Set where
+      var : ∀ {t}  → V t           → HOTm V t
+      con : ∀ {t}  → Con V t desc  → HOTm V t
 
     data Con (V : Ty → Set) (t : Ty) : Desc → Set where
       sg : ∀ {A k} x → Con V t (k x) → Con V t (sg A k)
@@ -145,20 +145,41 @@ module PHOAS (desc : Desc) where
         → Con V t (node n sh wt)
 
     Children : ∀ {n k} → (Ty → Set) → Vec Ty n → Shape n k → Vec Ty k → Set
-    Children V ts₀ = All₂ (λ bs t → (Allₗ V (visible bs ts₀) → Tm V t))
+    Children V ts₀ = All₂ (λ bs t → (Allˡ V (visible bs ts₀) → HOTm V t))
 \end{code}
-%</phoas>
+%</PHOAS>
 
 \begin{code}
-    sub : ∀ {V} → Tm (Tm V) →̇ Tm V
+    sub : ∀ {V} → HOTm (HOTm V) →̇ HOTm V
     sub (var v)  = v
     sub (con c)  = con (sub-con c)
       where
-        sub⋆ : ∀ {V n k sh ts₀ ts} → Children {n} {k} (Tm V) ts₀ sh ts → Children V ts₀ sh ts
+        sub⋆ : ∀ {V n k sh ts₀ ts} → Children {n} {k} (HOTm V) ts₀ sh ts → Children V ts₀ sh ts
         sub⋆ []        = []
         sub⋆ (e ∷ es)  = (λ xs → sub (e (map var xs))) ∷ sub⋆ es
 
-        sub-con : ∀ {V t c} → Con (Tm V) t c → Con V t c
+        sub-con : ∀ {V t c} → Con (HOTm V) t c → Con V t c
         sub-con (sg x c)       = sg x (sub-con c)
         sub-con (node ts₀ es)  = node ts₀ (sub⋆ es)
+\end{code}
+
+\begin{code}
+module _ (desc : Desc) where
+  module T = Typed desc
+  open T
+  module P = PHOAS desc
+  open P
+  open import GenericSyntax.Env Ty
+
+  fromTm : ∀ {Γ t} → Tm Γ t → ∀ {V} → Env V Γ → HOTm V t
+  fromTm (var v)  σ  = var (lookup σ v)
+  fromTm (con c)  σ  = con (go-con c σ)
+    where
+      go⋆ : ∀ {Γ n k sh ts₀ ts} → T.Children {n} {k} Γ ts₀ sh ts → ∀ {V} → Env V Γ → P.Children V ts₀ sh ts
+      go⋆ []        σ  = []
+      go⋆ (e ∷ es)  σ  = (λ xs → fromTm e (extend σ xs)) ∷ go⋆ es σ
+
+      go-con : ∀ {Γ t c V} → T.Con Γ t c → Env V Γ → P.Con V t c
+      go-con (T.sg x c)       σ  = sg x (go-con c σ)
+      go-con (T.node ts₀ es)  σ  = node ts₀ (go⋆ es σ)
 \end{code}
