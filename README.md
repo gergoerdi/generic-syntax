@@ -2,8 +2,9 @@ Generic description of well-scoped, well-typed syntaxes
 =======================================================
 
 This repository contains Agda code for the paper "Generic description
-The aim is a library that given a description of a language, will
-deliver the following functionality to the user:
+of well-scoped, well-typed syntaxes". The aim is a library that given
+a description of a language, will deliver the following functionality
+to the user:
 
 * A representation of syntactically valid, but not necessarily
   well-scoped formulas `Form : Set`
